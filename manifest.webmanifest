@@ -1,10 +1,10 @@
 {
-  "id": "/",
+  "id": "./",
   "name": "Dagens planer",
   "short_name": "Planer",
   "description": "Infotavle som PWA",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#9ad29a",
