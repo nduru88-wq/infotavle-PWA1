@@ -7,10 +7,8 @@
 
   <meta name="theme-color" content="#6fbf6f" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="icon" type="image/png" href="icon-192.png" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
   <style>
     :root{
@@ -55,23 +53,27 @@
     }
 
     .mini-weekday{ font-size:26px; font-weight:bold; }
+
     .mini-time{
       font-size:62px;
       font-weight:bold;
       letter-spacing:2px;
       line-height:1;
     }
+
     .colon{
       display:inline-block;
       width:14px;
       text-align:center;
       animation: blink 1s steps(1) infinite;
     }
+
     @keyframes blink{
       0%{opacity:1;}
       50%{opacity:0;}
       100%{opacity:1;}
     }
+
     .mini-period{ font-size:20px; opacity:0.85; }
 
     .plans-wrap{
@@ -104,7 +106,7 @@
 
     .weekday-title{
       position:fixed;
-      top: 26px;
+      top:26px;
       left:50%;
       transform:translateX(-50%);
       z-index:9;
@@ -181,6 +183,8 @@
 <div class="last-updated" id="lastUpdated">Sidst opdateret kl. –</div>
 
 <script>
+  const DATA_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AY5xjrQbmDkDHkhu-7KKKBmIsTVTS2hztV5My3Tmcyi_TfSiC65xr32UVNbS1V42hp84XWUupa7A4yrJ83pyVmJ5tU2_OGfh7bCYWEEHJuEIWhq3dxNHhG0GzWkdnsUcrC_yl_FTyczWjUCt0Uf2Sd21ad5v3wNGoWWI0uDaa-MxVEQff_LRwaCqOdX13RbEPjvJFt1HjXp4y0nvwa_CQBfopF8JrtsUS9b_1Cu0ggztXkRr2Q41mYZGImYrkDZ3PeN3EcRdEX5OPkOM2UADjYD_jndmAFJ6hw&lib=MOQPneRObWAnTnaFaNf4Yuk0Md9AGQDbH';
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').catch(err => {
@@ -209,25 +213,62 @@
     document.getElementById('weekdayTitle').textContent = weekdays[n.getDay()];
   }
 
-  function setLastUpdated(){
-    const n = new Date();
-    document.getElementById('lastUpdated').textContent =
-      'Sidst opdateret kl. ' +
-      String(n.getHours()).padStart(2,'0') + ':' +
-      String(n.getMinutes()).padStart(2,'0');
+  function setLastUpdated(text){
+    document.getElementById('lastUpdated').textContent = text || 'Sidst opdateret kl. –';
   }
 
-  function updateContent(){
-    document.getElementById('plansHeader').classList.add('hidden');
-    document.getElementById('content').classList.add('center');
-    document.getElementById('content').textContent =
-      'PWA virker.\n\nNæste trin er at koble kalenderdata på.';
-    setLastUpdated();
+  async function updateContent(){
+    const content = document.getElementById('content');
+    const header = document.getElementById('plansHeader');
+
+    try {
+      const response = await fetch(DATA_URL, { cache: 'no-store' });
+      if (!response.ok) throw new Error('Netværksfejl');
+
+      const data = await response.json();
+      let text = (data && data.text) ? String(data.text).trim() : '';
+
+      if (text && text !== 'INGEN PLANER I DAG') {
+        header.textContent = 'Planer for i dag';
+        header.classList.remove('hidden');
+
+        text = text.split('\n').slice(0,3).join('\n\n');
+
+        content.classList.remove('center');
+        content.style.position = 'static';
+        content.textContent = text;
+      } else {
+        header.classList.add('hidden');
+        content.classList.add('center');
+        content.style.position = 'absolute';
+        content.textContent = 'INGEN PLANER I DAG';
+      }
+
+      if (data && data.updated) {
+        setLastUpdated('Sidst opdateret kl. ' + data.updated);
+      } else {
+        const n = new Date();
+        setLastUpdated(
+          'Sidst opdateret kl. ' +
+          String(n.getHours()).padStart(2,'0') + ':' +
+          String(n.getMinutes()).padStart(2,'0')
+        );
+      }
+
+    } catch (err) {
+      console.error('Kunne ikke hente data:', err);
+      header.classList.add('hidden');
+      content.classList.add('center');
+      content.style.position = 'absolute';
+      content.textContent = 'KUNNE IKKE HENTE DATA';
+      setLastUpdated('Sidst opdateret kl. –');
+    }
   }
 
   updateClock();
   updateContent();
   setInterval(updateClock, 1000);
+  setInterval(updateContent, 60000);
 </script>
 
 </body>
