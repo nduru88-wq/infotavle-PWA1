@@ -1,1 +1,234 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Dagens planer</title>
 
+  <meta name="theme-color" content="#6fbf6f" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+  <style>
+    :root{
+      --clockSize: 210px;
+      --clockOffset: 16px;
+      --clockGap: 18px;
+      --pagePad: 24px;
+      --rightReserve: calc(var(--clockSize) + var(--clockOffset) + var(--clockGap));
+    }
+
+    body{
+      margin:0;
+      font-family:Arial,Helvetica,sans-serif;
+      height:100vh;
+      background:#9ad29a;
+    }
+
+    .container{
+      position:relative;
+      height:100%;
+      width:100%;
+      overflow:hidden;
+    }
+
+    .mini-clock{
+      position:fixed;
+      top:var(--clockOffset);
+      right:var(--clockOffset);
+      width:var(--clockSize);
+      height:var(--clockSize);
+      background:#87ceeb;
+      border-radius:22px;
+      box-shadow:0 6px 20px rgba(0,0,0,0.22);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      padding:14px;
+      box-sizing:border-box;
+      z-index:10;
+    }
+
+    .mini-weekday{ font-size:26px; font-weight:bold; }
+    .mini-time{
+      font-size:62px;
+      font-weight:bold;
+      letter-spacing:2px;
+      line-height:1;
+    }
+    .colon{
+      display:inline-block;
+      width:14px;
+      text-align:center;
+      animation: blink 1s steps(1) infinite;
+    }
+    @keyframes blink{
+      0%{opacity:1;}
+      50%{opacity:0;}
+      100%{opacity:1;}
+    }
+    .mini-period{ font-size:20px; opacity:0.85; }
+
+    .plans-wrap{
+      height:100%;
+      box-sizing:border-box;
+      padding-top: var(--pagePad);
+      padding-bottom: var(--pagePad);
+      padding-left: var(--pagePad);
+      padding-right: calc(var(--pagePad) + var(--rightReserve));
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+    }
+
+    .header, .content{
+      width: min(1200px, 100%);
+      box-sizing:border-box;
+    }
+
+    .header{
+      margin-top:10px;
+      font-size:42px;
+      font-weight:bold;
+      padding:18px 22px;
+      border-radius:16px;
+      background:#6fbf6f;
+      box-shadow:0 6px 18px rgba(0,0,0,0.12);
+      text-align:left;
+    }
+
+    .weekday-title{
+      position:fixed;
+      top: 26px;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:9;
+      font-size:70px;
+      font-weight:900;
+      letter-spacing:0.6px;
+      color:#133513;
+      text-align:center;
+      text-shadow: 0 3px 12px rgba(0,0,0,0.14);
+      padding: 8px 18px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.22);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.10);
+      max-width: min(1200px, calc(100vw - 36px));
+      box-sizing:border-box;
+      pointer-events:none;
+    }
+
+    .content{
+      margin-top:120px;
+      font-size:52px;
+      white-space:pre-line;
+      line-height:1.6;
+      padding:22px;
+      border-radius:18px;
+      background:rgba(255,255,255,0.18);
+      box-shadow:0 6px 18px rgba(0,0,0,0.10);
+      text-align:left;
+    }
+
+    .center{
+      position:absolute;
+      top:50%;
+      left:50%;
+      transform:translate(-50%,-50%);
+      width: min(1200px, calc(100vw - (var(--pagePad) * 2) - var(--rightReserve)));
+      text-align:center;
+    }
+
+    .hidden{ display:none; }
+
+    .last-updated{
+      position:fixed;
+      bottom:16px;
+      right:56px;
+      font-size:14px;
+      color:#2b4a2b;
+      opacity:0.85;
+      background:rgba(255,255,255,0.5);
+      padding:6px 10px;
+      border-radius:10px;
+      box-shadow:0 4px 14px rgba(0,0,0,0.12);
+      z-index:20;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="mini-clock">
+    <div class="mini-weekday" id="weekday">Klokken</div>
+    <div class="mini-time" id="clock">--<span class="colon">:</span>--</div>
+    <div class="mini-period" id="period">–</div>
+  </div>
+
+  <div class="weekday-title" id="weekdayTitle">–</div>
+
+  <div class="plans-wrap">
+    <div class="header" id="plansHeader">Planer for i dag</div>
+    <div class="content" id="content">HENTER DATA…</div>
+  </div>
+</div>
+
+<div class="last-updated" id="lastUpdated">Sidst opdateret kl. –</div>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(err => {
+        console.warn('Service Worker kunne ikke registreres:', err);
+      });
+    });
+  }
+
+  const weekdays = ['Søndag','Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag'];
+
+  function getPeriod(h){
+    if(h>=5 && h<10) return 'Formiddag';
+    if(h>=10 && h<17) return 'Eftermiddag';
+    if(h>=17 && h<22) return 'Aften';
+    return 'Nat';
+  }
+
+  function updateClock(){
+    const n = new Date();
+    const hh = String(n.getHours()).padStart(2,'0');
+    const mm = String(n.getMinutes()).padStart(2,'0');
+
+    document.getElementById('weekday').textContent = 'Klokken';
+    document.getElementById('clock').innerHTML = `${hh}<span class="colon">:</span>${mm}`;
+    document.getElementById('period').textContent = getPeriod(n.getHours());
+    document.getElementById('weekdayTitle').textContent = weekdays[n.getDay()];
+  }
+
+  function setLastUpdated(){
+    const n = new Date();
+    document.getElementById('lastUpdated').textContent =
+      'Sidst opdateret kl. ' +
+      String(n.getHours()).padStart(2,'0') + ':' +
+      String(n.getMinutes()).padStart(2,'0');
+  }
+
+  function updateContent(){
+    document.getElementById('plansHeader').classList.add('hidden');
+    document.getElementById('content').classList.add('center');
+    document.getElementById('content').textContent =
+      'PWA virker.\n\nNæste trin er at koble kalenderdata på.';
+    setLastUpdated();
+  }
+
+  updateClock();
+  updateContent();
+  setInterval(updateClock, 1000);
+</script>
+
+</body>
+</html>
